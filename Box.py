@@ -1,54 +1,65 @@
-import tkinter as tk
-from tkinter import ttk
+import tkinter as tk  # Importation de la bibliothèque tkinter pour créer l'interface graphique
+from tkinter import ttk  # Importation du module ttk pour utiliser les widgets de style
 
-class ConfigToolbox(tk.Tk):
-    def __init__(self):
-        super().__init__()
-        self.title("Configuration de la Toolbox")
-        self.geometry("500x400")  # Augmentation de la taille de la fenêtre
+class ConfigToolbox(tk.Tk):  # Définition de la classe ConfigToolbox héritant de la classe tk.Tk
+    def __init__(self):  # Définition de la méthode __init__ pour initialiser l'objet
+        super().__init__()  # Appel du constructeur de la classe parente
+        self.title("Configuration de la Toolbox")  # Définition du titre de la fenêtre
 
-        self.label = ttk.Label(self, text="Bienvenue dans la configuration de la Toolbox")
-        self.label.pack(pady=10)
+        # Chargement de l'image de fond depuis le fichier spécifié
+        self.background_image = tk.PhotoImage(file="C:/Users/aelhocine/Documents/fond-toolbox.png")
 
-        # Choix prédéfinis pour le nom de l'entreprise
-        self.company_names = ["Entreprise A", "Entreprise B", "Entreprise C", "Entreprise D", "Mairie de Romainville"]
+        # Définition des dimensions de la fenêtre en fonction de l'image de fond
+        self.geometry(f"{self.background_image.width()}x{self.background_image.height()}")
 
-        self.company_name_label = ttk.Label(self, text="Nom de l'entreprise :")
-        self.company_name_label.pack()
-        self.company_name_var = tk.StringVar()
-        self.company_name_combobox = ttk.Combobox(self, textvariable=self.company_name_var, values=self.company_names)
-        self.company_name_combobox.pack()
+        # Création d'un canevas avec l'image de fond
+        self.canvas = tk.Canvas(self, width=self.background_image.width(), height=self.background_image.height())
+        self.canvas.pack(fill="both", expand=True)
+        self.canvas.create_image(0, 0, image=self.background_image, anchor="nw")
 
-        # Choix prédéfinis pour le type de test
-        self.test_types = [
-            "1. Découverte de ports et de services",
-            "2. Détection de vulnérabilités",
-            "3. Analyse de la sécurité des mots de passe",
-            "4. Tests d'authentification",
-            "5. Exploitation de vulnérabilités",
-            "6. Post-exploitation",
-            "7. Reporting"
-        ]
+        # Définition des dimensions des éléments
+        element_width = 200
+        element_height = 30
 
-        self.test_type_label = ttk.Label(self, text="Type de test :")
-        self.test_type_label.pack()
-        self.test_type_var = tk.StringVar()
-        self.test_type_combobox = ttk.Combobox(self, textvariable=self.test_type_var, values=self.test_types)
-        self.test_type_combobox.pack()
+        # Calcul des positions pour centrer les éléments horizontalement
+        x_offset = (self.background_image.width() - element_width * 2) // 2
+        y_offset = 50
 
-        self.submit_button = ttk.Button(self, text="Valider", command=self.save_configuration)
-        self.submit_button.pack(pady=20)
+        # Création de l'étiquette et de la liste déroulante pour le nom de l'entreprise
+        company_name_label = ttk.Label(self.canvas, text="Nom de l'entreprise :")
+        company_name_label.place(x=x_offset, y=100 + y_offset)  # Positionnement de l'étiquette
+        self.company_name_var = tk.StringVar()  # Variable pour stocker le nom de l'entreprise sélectionné
+        company_name_combobox = ttk.Combobox(self.canvas, textvariable=self.company_name_var, values=["Entreprise A", "Entreprise B", "Entreprise C", "Entreprise D", "Mairie de Romainville"])
+        company_name_combobox.place(x=x_offset + element_width + 10, y=100 + y_offset)  # Positionnement de la liste déroulante
 
-    def save_configuration(self):
-        company_name = self.company_name_var.get()
-        test_type = self.test_type_var.get()
+        # Création de l'étiquette et de la liste déroulante pour le type de test
+        test_type_label = ttk.Label(self.canvas, text="Type de test :")
+        test_type_label.place(x=x_offset, y=150 + y_offset)  # Positionnement de l'étiquette
+        self.test_type_var = tk.StringVar()  # Variable pour stocker le type de test sélectionné
+        test_type_combobox = ttk.Combobox(self.canvas, textvariable=self.test_type_var, values=[
+            "Découverte de ports et de services",
+            "Détection de vulnérabilités",
+            "Analyse de la sécurité des mots de passe",
+            "Tests d'authentification",
+            "Exploitation de vulnérabilités",
+            "Post-exploitation",
+            "Reporting"
+        ])
+        test_type_combobox.place(x=x_offset + element_width + 10, y=150 + y_offset)  # Positionnement de la liste déroulante
 
-        # Enregistrer la configuration dans un fichier JSON ou YAML
-        # Exemple : {"company_name": company_name, "test_type": test_type}
+        # Création du bouton "Valider" et définition de sa position
+        submit_button = ttk.Button(self.canvas, text="Valider", command=self.save_configuration)
+        submit_button.place(x=(self.background_image.width() - element_width) // 2, y=self.background_image.height() - 100)
 
-        self.destroy()
-        print("Configuration enregistrée avec succès.")
+    def save_configuration(self):  # Définition de la méthode pour enregistrer la configuration
+        company_name = self.company_name_var.get()  # Récupération du nom de l'entreprise sélectionné
+        test_type = self.test_type_var.get()  # Récupération du type de test sélectionné
 
-if __name__ == "__main__":
-    app = ConfigToolbox()
-    app.mainloop()
+        # Enregistrement de la configuration dans un fichier JSON ou YAML
+
+        self.destroy()  # Fermeture de la fenêtre
+        print("Configuration enregistrée avec succès.")  # Affichage d'un message de confirmation
+
+if __name__ == "__main__":  # Condition pour exécuter le programme si ce fichier est exécuté directement
+    app = ConfigToolbox()  # Création d'une instance de la classe ConfigToolbox
+    app.mainloop()  # Lancement de la boucle principale de l'interface graphique
