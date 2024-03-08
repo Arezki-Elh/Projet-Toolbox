@@ -1,50 +1,95 @@
-import socket #importer le module socket
-from datetime import datetime #pour calculer le temps d’exécution du scan
-import threading #permet d’exécuter des programmes simultanément
+import tkinter as tk  # Importe le module tkinter pour créer une interface graphique
+from tkinter import ttk  # Importe le module ttk pour les widgets améliorés
+from tkinter import scrolledtext  # Importe le module scrolledtext pour le widget de texte déroulant
+import socket  # Importe le module socket pour les opérations de réseau
+import threading  # Importe le module threading pour exécuter des tâches en parallèle
+from datetime import datetime  # Importe la classe datetime pour la gestion du temps
 
+class PortScannerApp(tk.Tk):
+    def __init__(self):
+        super().__init__()  # Initialise la classe parente Tkinter
+        self.title("Port Scanner")  # Définit le titre de la fenêtre
+        self.geometry("500x400")  # Définit la taille de la fenêtre
 
-def get_target(): #donne la main à l’utilisateur pour qu’il saisisse sa cible
-    NUMERODELIP = input("Veuillez entrer l'address IP : ")  # Nous permet de mettre l'adress IP Ciblée
-    IPCIBLE = socket.gethostbyname(NUMERODELIP) #retourne l’adresse IPv4 associée à celui-ci et s’il entre une adresse IP
-    print(f'IP visée > {IPCIBLE}') #Nous affiche l'IP Ciblée, une fois que le code est lancée
-    return IPCIBLE
+        # Crée une étiquette et une entrée pour l'adresse IP cible
+        self.label_ip = ttk.Label(self, text="Adresse IP de la cible :")
+        self.label_ip.grid(column=0, row=0, padx=10, pady=10)
+        self.entry_ip = ttk.Entry(self)
+        self.entry_ip.grid(column=1, row=0, padx=10, pady=10)
 
+        # Crée une étiquette et deux entrées pour la plage de ports à scanner
+        self.label_ports = ttk.Label(self, text="Plage de ports à scanner (de - à) :")
+        self.label_ports.grid(column=0, row=1, padx=10, pady=10)
+        self.entry_start_port = ttk.Entry(self, width=5)
+        self.entry_start_port.grid(column=1, row=1, padx=5, pady=10)
+        self.entry_end_port = ttk.Entry(self, width=5)
+        self.entry_end_port.grid(column=2, row=1, padx=5, pady=10)
 
-def get_port_list(): #retourner la liste des ports connus
-    print(f'rangement des ports  > [1 – 1024]') #on met de quel port à quel port, on souhaite scanner
-    return range(1, 1024) # sa nous retourne la valeur
+        # Crée un bouton pour démarrer le scan
+        self.btn_scan = ttk.Button(self, text="Démarrer le scan", command=self.start_scan)
+        self.btn_scan.grid(column=1, row=2, pady=10)
 
+        # Crée une zone de texte déroulante pour afficher les résultats du scan
+        self.result_text = scrolledtext.ScrolledText(self, wrap=tk.WORD, width=60, height=15)
+        self.result_text.grid(column=0, row=3, columnspan=3, padx=10, pady=10)
 
-def scan_port(target, port): #  on crée l’objet socket
-    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s: #AF_INET correspond à l’adressage IPv4 et SOCK_STREAM fait référence au protocole TCP
-        test = s.connect_ex((target, port)) #Test de connexion
-        if test == 0: # Si le test est égale a 0
-            print(f'Le port {port} est [OUVERT]') # sa va nous sortir comme quoi le port est bien ouvert
-        else: # Sinon
-             print(f'Le port {port} est [FERMER]') # sa va nous sortir comme quoi le port est bien Fermer
-    
+    def start_scan(self):
+        target_ip = self.entry_ip.get()  # Récupère l'adresse IP saisie par l'utilisateur
+        start_port = int(self.entry_start_port.get())  # Récupère le port de départ
+        end_port = int(self.entry_end_port.get())  # Récupère le port de fin
 
-def port_scanner(): #On defenie la fonction port_scanner
-    try: # ca va essayer
-        target = get_target() # récupérer les valeurs qu’elles retournent dans les variables target et port_list
-        port_list = get_port_list() # récupérer les valeurs qu’elles retournent dans les variables target et port_list
-        thread_list = list() #parcourt la liste des ports
-        start_time = datetime.now() #récupérer les temps de début de l’opération de balayage des ports
+        if not target_ip:  # Vérifie si l'adresse IP est vide
+            self.result_text.insert(tk.END, "Veuillez saisir une adresse IP cible.\n")
+            return
 
-        for port in port_list: # Pour les ports qui sont dans la listes des ports 
-            scan = threading.Thread(target=scan_port, args=(target, port)) #la classe Thread qui prend comme paramètres scan_port
-            thread_list.append(scan) # le append permet d'ajouter un élément à la fin d'une liste existante 
-            scan.daemon = True #pour qu’ils n’empêchent pas le programme principal de se terminer correctement
-            scan.start() #on lance notre scan avec la méthode start()
+        # Affiche un message indiquant le début du scan
+        self.result_text.insert(tk.END, f"Balayage de ports sur {target_ip}...\n")
 
-        for scan in thread_list: #
-            scan.join() # pour que le programme principal se mette en pause et attende que l’exécution de tous les threads se termine.
-    except: # une exeption
-        print("Quelque chose ne va pas !") # nous affiche ce message si y'a eu une exception
-    else: # sinon, fais ça
-        end_time = datetime.now() #récupérer les temps de fin de l’opération de balayage des ports
-        print("le scanning a etait accomplie avec succées le", end_time , start_time) # Nous affiche a la fin du balayage la date et l'heure du début et de fin du scanning
+        # Lance un thread pour exécuter le scan des ports
+        threading.Thread(target=self.scan_ports, args=(target_ip, start_port, end_port)).start()
 
+    def scan_ports(self, target_ip, start_port, end_port):
+        start_time = datetime.now()  # Enregistre l'heure de début du scan
+        open_ports = []  # Liste pour stocker les ports ouverts
+        closed_ports = []  # Liste pour stocker les ports fermés
+        threads = []  # Liste pour stocker les threads
 
-if __name__ == '__main__': # Cette condition est utilisée pour développer un module pouvant à la fois être exécuté directement mais aussi être importé par un autre module pour apporter ses fonctions.
-    port_scanner()
+        # Boucle pour scanner chaque port dans la plage spécifiée
+        for port in range(start_port, end_port + 1):
+            # Crée un thread pour scanner chaque port
+            thread = threading.Thread(target=self.scan_port, args=(target_ip, port, open_ports, closed_ports))
+            thread.start()  # Démarre le thread
+            threads.append(thread)  # Ajoute le thread à la liste
+
+        # Attend que tous les threads se terminent
+        for thread in threads:
+            thread.join()
+
+        # Affiche les résultats du scan
+        for port in open_ports:
+            self.result_text.insert(tk.END, f"{datetime.now()} Le port {port} : OUVERT\n")
+        for port in closed_ports:
+            self.result_text.insert(tk.END, f"{datetime.now()} Le port {port} : FERMÉ\n")
+
+        end_time = datetime.now()  # Enregistre l'heure de fin du scan
+        self.result_text.insert(tk.END, f"Balayage terminé en {end_time - start_time}\n")
+
+    def scan_port(self, target_ip, port, open_ports, closed_ports):
+        try:
+            # Crée un objet socket et tente de se connecter au port spécifié
+            s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+            s.settimeout(1)  # Définit une durée maximale d'attente pour la connexion
+            result = s.connect_ex((target_ip, port))  # Teste la connexion au port
+            if result == 0:
+                open_ports.append(port)  # Ajoute le port à la liste des ports ouverts
+            else:
+                closed_ports.append(port)  # Ajoute le port à la liste des ports fermés
+            s.close()  # Ferme la connexion
+        except Exception as e:
+            # Affiche un message en cas d'erreur lors de la numérisation du port
+            self.result_text.insert(tk.END, f"Erreur lors de la numérisation du port {port}: {e}\n")
+
+if __name__ == "__main__":
+    # Crée une instance de l'application et lance la boucle principale
+    app = PortScannerApp()
+    app.mainloop()
