@@ -1,23 +1,37 @@
-import tkinter as tk  # Importe le module tkinter pour créer une interface graphique
-from tkinter import ttk  # Importe le module ttk pour les widgets améliorés
-from tkinter import scrolledtext  # Importe le module scrolledtext pour le widget de texte déroulant
-import socket  # Importe le module socket pour les opérations de réseau
-import threading  # Importe le module threading pour exécuter des tâches en parallèle
-from datetime import datetime  # Importe la classe datetime pour la gestion du temps
+# Importation des modules Tkinter pour l'interface graphique,
+# ttk pour les widgets améliorés et scrolledtext pour la zone de texte déroulante.
+import tkinter as tk  # Module principal pour l'interface graphique
+from tkinter import ttk  # Contient des versions améliorées des widgets Tkinter
+from tkinter import scrolledtext  # Fournit une zone de texte déroulante
 
+# Importation des modules nécessaires pour le scan de ports.
+import socket  # Fournit des fonctions pour la communication réseau
+import threading  # Permet d'exécuter le scan dans un thread séparé
+from datetime import datetime  # Permet d'obtenir la date et l'heure actuelles
+import subprocess  # Utilisé pour exécuter la commande Nmap
+
+# Classe principale de l'application, héritant de tk.Tk pour créer la fenêtre principale.
 class PortScannerApp(tk.Tk):
     def __init__(self):
-        super().__init__()  # Initialise la classe parente Tkinter
+        super().__init__()  # Appel au constructeur de la classe parente
         self.title("Port Scanner")  # Définit le titre de la fenêtre
-        self.geometry("500x400")  # Définit la taille de la fenêtre
+        self.geometry("500x400")    # Définit la taille de la fenêtre
 
-        # Crée une étiquette et une entrée pour l'adresse IP cible
+        # Création des widgets pour l'interface utilisateur
+        self.create_widgets()
+
+        # Initialisation d'une variable pour stocker le thread de scan
+        self.scan_thread = None
+
+    # Méthode pour créer les widgets de l'interface utilisateur
+    def create_widgets(self):
+        # Étiquette et entrée pour l'adresse IP cible
         self.label_ip = ttk.Label(self, text="Adresse IP de la cible :")
         self.label_ip.grid(column=0, row=0, padx=10, pady=10)
         self.entry_ip = ttk.Entry(self)
         self.entry_ip.grid(column=1, row=0, padx=10, pady=10)
 
-        # Crée une étiquette et deux entrées pour la plage de ports à scanner
+        # Étiquette et entrées pour la plage de ports à scanner
         self.label_ports = ttk.Label(self, text="Plage de ports à scanner (de - à) :")
         self.label_ports.grid(column=0, row=1, padx=10, pady=10)
         self.entry_start_port = ttk.Entry(self, width=5)
@@ -25,71 +39,86 @@ class PortScannerApp(tk.Tk):
         self.entry_end_port = ttk.Entry(self, width=5)
         self.entry_end_port.grid(column=2, row=1, padx=5, pady=10)
 
-        # Crée un bouton pour démarrer le scan
+        # Cases à cocher pour les options Nmap
+        self.var_syn = tk.BooleanVar()
+        self.check_syn = ttk.Checkbutton(self, text="Scan SYN (-sS)", variable=self.var_syn)
+        self.check_syn.grid(column=0, row=3, padx=10, pady=5)
+
+        self.var_version = tk.BooleanVar()
+        self.check_version = ttk.Checkbutton(self, text="Détection de version (-sV)", variable=self.var_version)
+        self.check_version.grid(column=1, row=3, padx=10, pady=5)
+
+        self.var_os = tk.BooleanVar()
+        self.check_os = ttk.Checkbutton(self, text="Détection du système d'exploitation (-O)", variable=self.var_os)
+        self.check_os.grid(column=2, row=3, padx=10, pady=5)
+
+        self.var_aggressive = tk.BooleanVar()
+        self.check_aggressive = ttk.Checkbutton(self, text="Scan agressif (-A)", variable=self.var_aggressive)
+        self.check_aggressive.grid(column=0, row=4, padx=10, pady=5)
+
+        # Bouton pour démarrer le scan
         self.btn_scan = ttk.Button(self, text="Démarrer le scan", command=self.start_scan)
-        self.btn_scan.grid(column=1, row=2, pady=10)
+        self.btn_scan.grid(column=1, row=5, pady=10)
 
-        # Crée une zone de texte déroulante pour afficher les résultats du scan
+        # Zone de texte déroulante pour afficher les résultats du scan
         self.result_text = scrolledtext.ScrolledText(self, wrap=tk.WORD, width=60, height=15)
-        self.result_text.grid(column=0, row=3, columnspan=3, padx=10, pady=10)
+        self.result_text.grid(column=0, row=6, columnspan=3, padx=10, pady=10)
 
+    # Méthode appelée lors du clic sur le bouton "Démarrer le scan"
     def start_scan(self):
-        target_ip = self.entry_ip.get()  # Récupère l'adresse IP saisie par l'utilisateur
-        start_port = int(self.entry_start_port.get())  # Récupère le port de départ
-        end_port = int(self.entry_end_port.get())  # Récupère le port de fin
+        # Validation des entrées utilisateur
+        target_ip = self.entry_ip.get()
+        start_port = self.entry_start_port.get()
+        end_port = self.entry_end_port.get()
 
-        if not target_ip:  # Vérifie si l'adresse IP est vide
-            self.result_text.insert(tk.END, "Veuillez saisir une adresse IP cible.\n")
+        if not target_ip or not start_port or not end_port:
+            self.result_text.insert(tk.END, "Veuillez saisir une adresse IP cible et une plage de ports.\n")
             return
 
-        # Affiche un message indiquant le début du scan
+        try:
+            start_port = int(start_port)
+            end_port = int(end_port)
+        except ValueError:
+            self.result_text.insert(tk.END, "Veuillez saisir des numéros de port valides.\n")
+            return
+
+        if start_port > end_port:
+            self.result_text.insert(tk.END, "Le port de début doit être inférieur ou égal au port de fin.\n")
+            return
+
+        # Construction de la commande Nmap en fonction des options sélectionnées
+        nmap_cmd = "nmap"
+        if self.var_syn.get():
+            nmap_cmd += " -sS"
+        if self.var_version.get():
+            nmap_cmd += " -sV"
+        if self.var_os.get():
+            nmap_cmd += " -O"
+        if self.var_aggressive.get():
+            nmap_cmd += " -A"
+        nmap_cmd += f" -p {start_port}-{end_port} {target_ip}"
+
+        # Affichage d'un message indiquant le début du scan
         self.result_text.insert(tk.END, f"Balayage de ports sur {target_ip}...\n")
 
-        # Lance un thread pour exécuter le scan des ports
-        threading.Thread(target=self.scan_ports, args=(target_ip, start_port, end_port)).start()
+        # Lancement d'un thread pour exécuter la commande Nmap
+        self.scan_thread = threading.Thread(target=self.run_nmap, args=(nmap_cmd,))
+        self.scan_thread.start()
 
-    def scan_ports(self, target_ip, start_port, end_port):
-        start_time = datetime.now()  # Enregistre l'heure de début du scan
-        open_ports = []  # Liste pour stocker les ports ouverts
-        closed_ports = []  # Liste pour stocker les ports fermés
-        threads = []  # Liste pour stocker les threads
-
-        # Boucle pour scanner chaque port dans la plage spécifiée
-        for port in range(start_port, end_port + 1):
-            # Crée un thread pour scanner chaque port
-            thread = threading.Thread(target=self.scan_port, args=(target_ip, port, open_ports, closed_ports))
-            thread.start()  # Démarre le thread
-            threads.append(thread)  # Ajoute le thread à la liste
-
-        # Attend que tous les threads se terminent
-        for thread in threads:
-            thread.join()
-
-        # Affiche les résultats du scan
-        for port in open_ports:
-            self.result_text.insert(tk.END, f"{datetime.now()} Le port {port} : OUVERT\n")
-        for port in closed_ports:
-            self.result_text.insert(tk.END, f"{datetime.now()} Le port {port} : FERMÉ\n")
-
-        end_time = datetime.now()  # Enregistre l'heure de fin du scan
-        self.result_text.insert(tk.END, f"Balayage terminé en {end_time - start_time}\n")
-
-    def scan_port(self, target_ip, port, open_ports, closed_ports):
+    # Méthode pour exécuter la commande Nmap dans un thread séparé
+    def run_nmap(self, nmap_cmd):
         try:
-            # Crée un objet socket et tente de se connecter au port spécifié
-            s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-            s.settimeout(1)  # Définit une durée maximale d'attente pour la connexion
-            result = s.connect_ex((target_ip, port))  # Teste la connexion au port
-            if result == 0:
-                open_ports.append(port)  # Ajoute le port à la liste des ports ouverts
-            else:
-                closed_ports.append(port)  # Ajoute le port à la liste des ports fermés
-            s.close()  # Ferme la connexion
+            # Exécution de la commande Nmap et affichage des résultats dans la zone de texte déroulante
+            output = subprocess.check_output(nmap_cmd, shell=True, universal_newlines=True)
+            self.result_text.insert(tk.END, output)
+        except subprocess.CalledProcessError as e:
+            # Affichage d'un message en cas d'erreur lors de l'exécution de la commande Nmap
+            self.result_text.insert(tk.END, f"Erreur lors de l'exécution de la commande Nmap : {e.output}\n")
         except Exception as e:
-            # Affiche un message en cas d'erreur lors de la numérisation du port
-            self.result_text.insert(tk.END, f"Erreur lors de la numérisation du port {port}: {e}\n")
+            # Affichage d'un message en cas d'erreur inattendue
+            self.result_text.insert(tk.END, f"Erreur inattendue : {e}\n")
 
+# Point d'entrée de l'application, exécute l'application si ce fichier est exécuté en tant que script
 if __name__ == "__main__":
-    # Crée une instance de l'application et lance la boucle principale
-    app = PortScannerApp()
-    app.mainloop()
+    app = PortScannerApp()  # Crée une instance de l'application
+    app.mainloop()  # Démarre la boucle principale de l'interface graphique
