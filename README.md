@@ -47,6 +47,16 @@ pip install python-nmap
 Installation de Nmap
 En plus des bibliothèques Python, vous devez également installer Nmap sur votre système. Vous pouvez télécharger et installer Nmap à partir du site officiel de Nmap.
 -----------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+Fichiers ZIP
+allitems.zip : Contient une base de données locale des CVE utilisée par l'outil de recherche de CVE. Il est nécessaire de dézipper ce fichier pour utiliser la fonctionnalité de recherche de CVE.
+rockyou.zip : Contient une liste de mots de passe couramment utilisés, utile pour le cracking de mots de passe. Il est nécessaire de dézipper ce fichier pour utiliser la fonctionnalité de cracking de mots de passe.
+
+-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+Instructions pour dézipper allitems.zip et rockyou.zip
+Téléchargez les fichiers allitems.zip et rockyou.zip à partir de la source fournie.
+Extrayez le contenu des fichiers zip dans le répertoire du projet.
+Assurez-vous que les fichiers extraits se trouvent dans le même répertoire que box.py.
+
 Utilisation
 Pour utiliser la toolbox, il suffit de lancer le script box.py :
 python box.py
